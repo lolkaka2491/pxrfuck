@@ -52,7 +52,7 @@
             console.log("Captcha load button not found.");
         }
 
-        await sleep(1000);
+        await sleep(1200);
 
         const submitButton = document.querySelector('button[type="submit"]');
         if (submitButton) {
@@ -62,7 +62,7 @@
             console.log("Submit button not found.");
         }
 
-        await sleep(3800);
+        await sleep(3600);
 
         const logoutButton = [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Log Out"));
         if (logoutButton) {
