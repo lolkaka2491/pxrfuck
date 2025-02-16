@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Auto Register & Submit
 // @namespace    http://tampermonkey.net/
-// @version      1.4
-// @description  Autofills registration fields, loads captcha, submits the form, logs out, then clicks “Зарегистрироваться” to restart the process.
+// @version      1.5
+// @description  Autofills registration fields, loads captcha, submits the form, logs out, then clicks “Зарегистрироваться” to restart the process. Logs account count upon logout.
 // @match        *://*/*
 // @grant        none
 // @run-at       document-end
@@ -10,6 +10,8 @@
 
 (function() {
     'use strict';
+
+    let accountCount = 0;
 
     function getRandomString(length) {
         const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -65,14 +67,15 @@
         const logoutButton = [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Log Out"));
         if (logoutButton) {
             logoutButton.click();
-            console.log("Clicked logout button.");
+            accountCount++;
+            console.log("Clicked logout button. Account #" + accountCount + " created.");
         } else {
             console.log("Logout button not found.");
         }
 
         await sleep(2000);
 
-        // Find and click the "Зарегистрироваться" button
+        // Find and click the "Зарегистрироваться" button to restart the process
         const registrationButton = [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Зарегистрироваться"));
         if (registrationButton) {
             registrationButton.click();
