@@ -73,7 +73,7 @@
         if (captchaLoaded) {
             await sleep(900);
         } else {
-            await sleep(200);
+            await sleep(900);
         }
 
         // Нажимаем кнопку submit (один раз).
