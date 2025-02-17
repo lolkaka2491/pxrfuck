@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Auto Register & Submit
 // @namespace    http://tampermonkey.net/
-// @version      1.6
-// @description  Autofills registration fields, loads captcha, waits for captcha input, submits the form, logs out (or restarts on captcha error), then clicks “Зарегистрироваться” to restart the process. Retries clicking every 100ms if not found.
+// @version      1.8
+// @description  Автозаполнение регистрационных полей (если они пустые) и последовательное нажатие кнопок: captcha load, затем через 800мс submit, затем logout, captcha load и 'Зарегистрироваться' с задержкой 100мс между кликами.
 // @match        *://*/*
 // @grant        none
 // @run-at       document-end
@@ -13,70 +13,81 @@
 
     let accountCount = 0;
 
+    // Возвращает случайную строку заданной длины.
     function getRandomString(length) {
         const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
         return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     }
 
+    // Возвращает случайный email.
     function getRandomEmail() {
         return getRandomString(8) + "@gmail.com";
     }
 
+    // Заполняет input, указанный селектором, если он пустой.
     function fillInput(selector, value) {
         const input = document.querySelector(selector);
-        if (input) {
+        if (input && !input.value) {
             input.value = value;
             input.dispatchEvent(new Event("input", { bubbles: true }));
         }
     }
 
+    // Задержка (sleep) в мс.
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Repeatedly attempts to get and click an element.
-    async function retryClick(getElementFn, description) {
-        while (true) {
-            const element = getElementFn();
-            if (element) {
-                element.click();
-                console.log("Clicked " + description);
-                return;
-            }
-            // Log a message if desired, then wait 100ms before retrying.
-            console.log(description + " not found, retrying in 100ms...");
-            await sleep(100);
+    // Пытается нажать элемент (один раз). Если элемент найден – нажимает и ждёт delay мс.
+    async function clickIfExists(getElementFn, description, delay = 100) {
+        const element = getElementFn();
+        if (element) {
+            element.click();
+            console.log("Clicked " + description);
+        } else {
+            console.log(description + " not found");
         }
+        await sleep(delay);
     }
 
     async function autoRegister() {
-        // Fill registration fields with random data.
-        const randomName = getRandomString(10);
-        const randomEmail = getRandomEmail();
+        // Автозаполнение регистрационных полей только если они пустые.
+        fillInput('input[name="name"].reginput', getRandomString(10));
+        fillInput('input[name="email"].reginput', getRandomEmail());
         const randomPassword = getRandomString(6);
-        fillInput('input[name="name"].reginput', randomName);
-        fillInput('input[name="email"].reginput', randomEmail);
         fillInput('input[name="password"].reginput', randomPassword);
         fillInput('input[name="confirmpassword"].reginput', randomPassword);
-        console.log("Autofilled registration fields.");
+        console.log("Проверка и автозаполнение регистрационных полей (только если пустые)");
 
-        // Click the captcha load button.
-        await retryClick(
-            () => document.querySelector('span[role="button"][title="Загрузить капчу"].modallink'),
-            "captcha load button"
-        );
+        // Нажимаем кнопку загрузки капчи (один раз).
+        let captchaLoaded = false;
+        const captchaLoadBtn = document.querySelector('span[role="button"][title="Загрузить капчу"].modallink');
+        if (captchaLoadBtn) {
+            captchaLoadBtn.click();
+            captchaLoaded = true;
+            console.log("Clicked captcha load button");
+        } else {
+            console.log("captcha load button not found");
+        }
+        // Если капча нажата – ждем 800 мс, иначе 100 мс.
+        if (captchaLoaded) {
+            await sleep(800);
+        } else {
+            await sleep(100);
+        }
 
-        await sleep(1600);
+        // Нажимаем кнопку submit (один раз).
+        const submitBtn = document.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.click();
+            console.log("Clicked submit button");
+        } else {
+            console.log("submit button not found");
+        }
+        // Ждем завершения отправки формы.
+        await sleep(2200);
 
-        // Click the submit button.
-        await retryClick(
-            () => document.querySelector('button[type="submit"]'),
-            "submit button"
-        );
-
-        await sleep(3200);
-
-        // Check if a captcha error message appears.
+        // Если обнаружена ошибка капчи, перезапускаем процесс.
         const errorElem = document.querySelector('p.errormessage');
         if (errorElem && errorElem.textContent.includes("Вы неправильно решили капчу")) {
             console.log("Captcha error detected, restarting process.");
@@ -85,28 +96,34 @@
             return;
         }
 
-        // Click the logout button.
-        await retryClick(
+        // Последовательно нажимаем оставшиеся кнопки (каждая один раз) с задержкой 100 мс между ними.
+        await clickIfExists(
             () => [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Log Out")),
-            "logout button"
+            "logout button",
+            100
         );
+
+        await clickIfExists(
+            () => document.querySelector('span[role="button"][title="Загрузить капчу"].modallink'),
+            "captcha load button",
+            100
+        );
+
+        await clickIfExists(
+            () => [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Зарегистрироваться")),
+            "'Зарегистрироваться' button",
+            100
+        );
+
         accountCount++;
-        console.log("Clicked logout button. Account #" + accountCount + " created.");
+        console.log("Account #" + accountCount + " created.");
 
         await sleep(2000);
-
-        // Click the "Зарегистрироваться" button to restart.
-        await retryClick(
-            () => [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Зарегистрироваться")),
-            "'Зарегистрироваться' button"
-        );
-
-        await sleep(1000);
-
-        // Restart the process.
+        // Перезапуск процесса.
         autoRegister();
     }
 
+    // Создаем маленькую перетаскиваемую кнопку для старта autoRegister.
     function createUI() {
         const ui = document.createElement("div");
         ui.style.position = "fixed";
