@@ -71,9 +71,9 @@
         }
         // Если капча нажата – ждем 800 мс, иначе 100 мс.
         if (captchaLoaded) {
-            await sleep(800);
+            await sleep(900);
         } else {
-            await sleep(100);
+            await sleep(200);
         }
 
         // Нажимаем кнопку submit (один раз).
