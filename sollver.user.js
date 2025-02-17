@@ -3,15 +3,6 @@
 // @namespace    vermei_and_nof
 // @version      1.12
 // @description  Solve PixelPlanet and clones captchas automatically (Supported: pixmap, pixelya, pixworld, pixuniverse, pixelworldgame, pxgame, pixelplanet, pixelverse)
-// @match        *://*.pixuniverse.fun/*
-// @match        *://*.pixmap.fun/*
-// @match        *://*.pixelya.fun/*
-// @match        *://*.pixworld.net/*
-// @match        *://*.pixelworldgame.xyz/*
-// @match        *://*.pxgame.xyz/*
-// @match        *://*.fuckyouarkeros.fun/*
-// @match        *://*.pixelplanet.fun/*
-// @match        *://*.pixverse.fun/*
 // @match        *://*.pixelroyal.fun/*
 // @grant        none
 // @license MIT
