@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Auto Register & Submit
 // @namespace    http://tampermonkey.net/
-// @version      1.8
-// @description  Автозаполнение регистрационных полей (если они пустые) и последовательное нажатие кнопок: captcha load, затем через 800мс submit, затем logout, captcha load и 'Зарегистрироваться' с задержкой 100мс между кликами.
+// @version      1.9.1
+// @description  pxrfuck
 // @match        *://*/*
 // @grant        none
 // @run-at       document-end
@@ -13,18 +13,15 @@
 
     let accountCount = 0;
 
-    // Возвращает случайную строку заданной длины.
     function getRandomString(length) {
         const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
         return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     }
 
-    // Возвращает случайный email.
     function getRandomEmail() {
         return getRandomString(8) + "@gmail.com";
     }
 
-    // Заполняет input, указанный селектором, если он пустой.
     function fillInput(selector, value) {
         const input = document.querySelector(selector);
         if (input && !input.value) {
@@ -33,12 +30,37 @@
         }
     }
 
-    // Задержка (sleep) в мс.
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Пытается нажать элемент (один раз). Если элемент найден – нажимает и ждёт delay мс.
+    async function waitForCaptchaText() {
+        let captchaInput;
+        while (true) {
+            captchaInput = document.querySelector('input[name="captcha"]');
+            if (captchaInput && captchaInput.value.trim() !== "") {
+                console.log("Обнаружен текст капчи: " + captchaInput.value);
+                break;
+            }
+            await sleep(100);
+        }
+    }
+
+    async function waitForLogoutButton() {
+        let logoutBtn;
+        while (true) {
+            logoutBtn = [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Log Out"));
+            if (logoutBtn) {
+                console.log("Найдена кнопка Log Out");
+                break;
+            }
+            await sleep(100);
+        }
+        logoutBtn.click();
+        console.log("Нажата кнопка Log Out");
+        await sleep(100);
+    }
+
     async function clickIfExists(getElementFn, description, delay = 100) {
         const element = getElementFn();
         if (element) {
@@ -51,57 +73,45 @@
     }
 
     async function autoRegister() {
-        // Автозаполнение регистрационных полей только если они пустые.
+        // Автозаполнение регистрационных полей, если они пустые.
         fillInput('input[name="name"].reginput', getRandomString(10));
         fillInput('input[name="email"].reginput', getRandomEmail());
         const randomPassword = getRandomString(6);
         fillInput('input[name="password"].reginput', randomPassword);
         fillInput('input[name="confirmpassword"].reginput', randomPassword);
-        console.log("Проверка и автозаполнение регистрационных полей (только если пустые)");
+        console.log("Проверка и автозаполнение регистрационных полей (если пустые)");
 
-        // Нажимаем кнопку загрузки капчи (один раз).
         let captchaLoaded = false;
         const captchaLoadBtn = document.querySelector('span[role="button"][title="Загрузить капчу"].modallink');
         if (captchaLoadBtn) {
             captchaLoadBtn.click();
             captchaLoaded = true;
-            console.log("Clicked captcha load button");
+            console.log("Нажата кнопка загрузки капчи");
         } else {
-            console.log("captcha load button not found");
-        }
-        // Если капча нажата – ждем 800 мс, иначе 100 мс.
-        if (captchaLoaded) {
-            await sleep(900);
-        } else {
-            await sleep(900);
+            console.log("Кнопка загрузки капчи не найдена");
         }
 
-        // Нажимаем кнопку submit (один раз).
+        await waitForCaptchaText();
+
         const submitBtn = document.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.click();
-            console.log("Clicked submit button");
+            console.log("Нажата кнопка submit");
         } else {
-            console.log("submit button not found");
+            console.log("Кнопка submit не найдена");
         }
-        // Ждем завершения отправки формы.
+
         await sleep(2200);
 
-        // Если обнаружена ошибка капчи, перезапускаем процесс.
         const errorElem = document.querySelector('p.errormessage');
         if (errorElem && errorElem.textContent.includes("Вы неправильно решили капчу")) {
-            console.log("Captcha error detected, restarting process.");
+            console.log("Обнаружена ошибка капчи, перезапуск процесса.");
             await sleep(100);
             autoRegister();
             return;
         }
 
-        // Последовательно нажимаем оставшиеся кнопки (каждая один раз) с задержкой 100 мс между ними.
-        await clickIfExists(
-            () => [...document.querySelectorAll('button')].find(btn => btn.textContent.includes("Log Out")),
-            "logout button",
-            100
-        );
+        await waitForLogoutButton();
 
         await clickIfExists(
             () => document.querySelector('span[role="button"][title="Загрузить капчу"].modallink'),
@@ -116,14 +126,13 @@
         );
 
         accountCount++;
-        console.log("Account #" + accountCount + " created.");
+        console.log("Аккаунт #" + accountCount + " создан.");
 
         await sleep(2000);
         // Перезапуск процесса.
         autoRegister();
     }
 
-    // Создаем маленькую перетаскиваемую кнопку для старта autoRegister.
     function createUI() {
         const ui = document.createElement("div");
         ui.style.position = "fixed";
